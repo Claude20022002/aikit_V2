@@ -27,11 +27,11 @@ setuptools==78.0.2
 pycparser==2.22
 cffi==1.17.1
 soundfile==0.13.1
-spacemit-ort==1.2.2
-webrtcvad==2.0.10
-opencv-python==4.6.8.1
+# spacemit-ort==1.2.2  # Package non disponible sur PyPI
+webrtcvad-wheels==2.0.10  # Version précompilée
+opencv-python==4.6.0.66  # Version corrigée
 pyqt5==5.15.11
-gpiozero==2.0.4
+gpiozero==2.0.1  # Version corrigée
 pyserial==3.5
 pymycobot==3.9.3
 matplotlib==3.10.1
