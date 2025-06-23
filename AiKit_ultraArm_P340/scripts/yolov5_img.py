@@ -9,129 +9,129 @@ import serial
 import serial.tools.list_ports
 import pymycobot
 from packaging import version
-# min low version require
+# Version minimale requise
 MAX_REQUIRE_VERSION = '3.9.1'
 current_verison = pymycobot.__version__
-print('current pymycobot library version: {}'.format(current_verison))
+print('Version actuelle de la bibliothèque pymycobot : {}'.format(current_verison))
 if version.parse(current_verison) > version.parse(MAX_REQUIRE_VERSION):
     from pymycobot.ultraArmP340 import ultraArmP340
     class_name = 'new'
 else:
     from pymycobot.ultraArm import ultraArm
     class_name = 'old'
-    print("Note: This class is no longer maintained since v3.6.0, please refer to the project documentation: https://github.com/elephantrobotics/pymycobot/blob/main/README.md")
+    print("Note : Cette classe n'est plus maintenue depuis la v3.6.0, veuillez vous référer à la documentation du projet : https://github.com/elephantrobotics/pymycobot/blob/main/README.md")
 
 
 from pymycobot.mycobot import MyCobot
 
 IS_CV_4 = cv2.__version__[0] == '4'
-__version__ = "1.0"  # Adaptive seeed
+__version__ = "1.0"  # Seeed adaptatif
 
 
 class Object_detect():
 
     def __init__(self, camera_x = 255, camera_y = -10):
-        # inherit the parent class
+        # hériter de la classe parente
         super(Object_detect, self).__init__()
 
-        # declare ultraArm P340
+        # déclarer ultraArm P340
         self.ua = None
         
-        # get real serial
+        # obtenir le port série réel
         self.plist = [
         str(x).split(" - ")[0].strip() for x in serial.tools.list_ports.comports()
     ]
         
-        # 移动角度
+        # Angle de mouvement
         self.move_angles = [
-            [0.0, 0.0, 0.0],  # init the point
-            # [19.48, 0.0, 0.0],  # point to grab
+            [0.0, 0.0, 0.0],  # initialiser le point
+            # [19.48, 0.0, 0.0],  # point pour saisir
             [25.55, 0.0, 15.24],
-            [0.0, 14.32, 0.0],  # point to grab
+            [0.0, 14.32, 0.0],  # point pour saisir
         ]
 
-        # 移动坐标
+        # Coordonnées de déplacement
         self.move_coords = [
-            [141.53, 148.67, 43.73], # D Sorting area
-            [248.52, 152.35, 53.45],    # C Sorting area
-            [269.02, -161.65, 51.42],   # A Sorting area
-            [146.8, -159.53, 50.44],     # B Sorting area
+            [141.53, 148.67, 43.73], # Zone de tri D
+            [248.52, 152.35, 53.45],    # Zone de tri C
+            [269.02, -161.65, 51.42],   # Zone de tri A
+            [146.8, -159.53, 50.44],     # Zone de tri B
         ]
    
-        # choose place to set cube
+        # choisir l'endroit pour poser le cube
         self.color = 0
-        # parameters to calculate camera clipping parameters
+        # paramètres pour calculer les paramètres de découpage de la caméra
         self.x1 = self.x2 = self.y1 = self.y2 = 0
-        # set cache of real coord
+        # définir le cache des coordonnées réelles
         self.cache_x = self.cache_y = 0
 
-        # use to calculate coord between cube and mycobot
+        # utiliser pour calculer les coordonnées entre le cube et le mycobot
         self.sum_x1 = self.sum_x2 = self.sum_y2 = self.sum_y1 = 0
-        # The coordinates of the grab center point relative to the mycobot
+        # Les coordonnées du point central de préhension par rapport au mycobot
         self.camera_x, self.camera_y = camera_x, camera_y
-        # The coordinates of the cube relative to the mycobot
+        # Les coordonnées du cube par rapport au mycobot
         self.c_x, self.c_y = 0, 0
-        # The ratio of pixels to actual values
+        # Le rapport des pixels aux valeurs réelles
         self.ratio = 0
-        # Get ArUco marker dict that can be detected.
+        # Obtenir le dictionnaire de marqueurs ArUco qui peut être détecté.
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-        # Get ArUco marker params.
+        # Obtenir les paramètres du marqueur ArUco.
         self.aruco_params = cv2.aruco.DetectorParameters_create()
         
-        # yolov5 model file path
+        # chemin du fichier du modèle yolov5
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.modelWeights = self.path + "/scripts/yolov5s.onnx"
         if IS_CV_4:
             self.net = cv2.dnn.readNet(self.modelWeights)
         else:
-            print('Load yolov5 model need the version of opencv is 4.')
+            print('Le chargement du modèle yolov5 nécessite la version 4 de opencv.')
             exit(0)
             
-        # Constants.
+        # Constantes.
         self.INPUT_WIDTH = 640   # 640
         self.INPUT_HEIGHT = 640  # 640
         self.SCORE_THRESHOLD = 0.5
         self.NMS_THRESHOLD = 0.45 
         self.CONFIDENCE_THRESHOLD = 0.45
         
-        # Text parameters.
+        # Paramètres de texte.
         self.FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
         self.FONT_SCALE = 0.7
         self.THICKNESS = 1
         
-        # Colors.
+        # Couleurs.
         self.BLACK  = (0,0,0)
         self.BLUE   = (255,178,50)
         self.YELLOW = (0,255,255)
         
-        '''加载类别名'''
+        '''Charger les noms de classe'''
         classesFile = self.path + "/scripts/coco.names"
         self.classes = None
         with open(classesFile, 'rt') as f:
             self.classes = f.read().rstrip('\n').split('\n')
        
 
-    # 开启吸泵 
+    # démarrer la pompe
     def pump_on(self):
         self.ua.set_gpio_state(0)
 
-    # 停止吸泵 
+    # arrêter la pompe
     def pump_off(self):
         self.ua.set_gpio_state(1)
 
-     # Grasping motion
+     # Mouvement de préhension
     def move(self, x, y, color):
-        # send Angle to move ultraArm P340
+        # envoyer l'angle pour déplacer ultraArm P340
         self.ua.set_angles(self.move_angles[2], 50)
         time.sleep(3)
         
-        # send coordinates to move ultraArm P340 根据不同底板机械臂，调整吸泵高度
+        # envoyer les coordonnées pour déplacer ultraArm P340. Ajuster la hauteur de la pompe en fonction des différents bras robotiques de la plaque de base
         self.ua.set_coords([x, -y, 65.51], 50)
         time.sleep(1.5)
         self.ua.set_coords([x, -y, -70], 50)
         time.sleep(2)
 
-        # open pump
+        # ouvrir la pompe
         self.pump_on()
         time.sleep(1.5)
         self.ua.set_angles(self.move_angles[0], 50)
@@ -144,7 +144,7 @@ class Object_detect():
     
         time.sleep(7)
 
-        # close pump
+        # fermer la pompe
    
         self.pump_off()
         time.sleep(8)
@@ -152,24 +152,23 @@ class Object_detect():
         self.ua.set_angles(self.move_angles[1], 50)
         time.sleep(1.5)
 
-        print('请按空格键打开摄像头进行下一次图像存储和识别')
-        print('Please press the space bar to open the camera for the next image storage and recognition')
+        print('Veuillez appuyer sur la barre d\'espace pour ouvrir la caméra pour la prochaine mémorisation et reconnaissance d\'image')
 
-    # decide whether grab cube
+    # décider de saisir le cube ou non
     def decide_move(self, x, y, color):
         # print(x, y, self.cache_x, self.cache_y)
-        # detect the cube status move or run
+        # détecter l'état du cube en mouvement ou en cours d'exécution
         #if (abs(x - self.cache_x) + abs(y - self.cache_y)) / 2 > 5:  # mm
             #self.cache_x, self.cache_y = x, y
             #return
         #else:
         self.cache_x = self.cache_y = 0
-        # 调整吸泵吸取位置，y增大,向左移动;y减小,向右移动;x增大,前方移动;x减小,向后方移动
+        # Ajuster la position d'aspiration de la pompe, augmenter y pour se déplacer vers la gauche ; diminuer y pour se déplacer vers la droite ; augmenter x pour avancer ; diminuer x pour reculer
    
         self.move(x, y, color)
       
 
-    # init ultraArm P340
+    # initialiser ultraArm P340
     def run(self):
         if class_name == 'old':
             self.ua = ultraArm(self.plist[0], 115200)
@@ -180,9 +179,9 @@ class Object_detect():
         time.sleep(3)
 
 
-    # draw aruco
+    # dessiner le marqueur aruco
     def draw_marker(self, img, x, y):
-        # draw rectangle on img
+        # dessiner un rectangle sur l'image
         cv2.rectangle(
             img,
             (x - 20, y - 20),
@@ -191,7 +190,7 @@ class Object_detect():
             thickness=2,
             lineType=cv2.FONT_HERSHEY_COMPLEX,
         )
-        # add text on rectangle
+        # ajouter du texte sur le rectangle
         cv2.putText(
             img,
             "({},{})".format(x, y),
@@ -202,18 +201,18 @@ class Object_detect():
             2,
         )
 
-    # get points of two aruco
+    # obtenir les points de deux aruco
     def get_calculate_params(self, img):
-        # Convert the image to a gray image
+        # Convertir l'image en une image en niveaux de gris
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Detect ArUco marker.
+        # Détecter le marqueur ArUco.
         corners, ids, rejectImaPoint = cv2.aruco.detectMarkers(
             gray, self.aruco_dict, parameters=self.aruco_params)
 
         """
-        Two Arucos must be present in the picture and in the same order.
-        There are two Arucos in the Corners, and each aruco contains the pixels of its four corners.
-        Determine the center of the aruco by the four corners of the aruco.
+        Deux Arucos doivent être présents sur l'image et dans le même ordre.
+        Il y a deux Arucos dans les Coins, et chaque aruco contient les pixels de ses quatre coins.
+        Déterminer le centre de l'aruco par les quatre coins de l'aruco.
         """
         if len(corners) > 0:
             if ids is not None:
@@ -236,7 +235,7 @@ class Object_detect():
                 return x1, x2, y1, y2
         return None
 
-    # set camera clipping parameters
+    # définir les paramètres de découpage de la caméra
     def set_cut_params(self, x1, y1, x2, y2):
         self.x1 = int(x1)
         self.y1 = int(y1)
@@ -244,25 +243,25 @@ class Object_detect():
         self.y2 = int(y2)
         print(self.x1, self.y1, self.x2, self.y2)
 
-    # set parameters to calculate the coords between cube and mycobot
+    # définir les paramètres pour calculer les coordonnées entre le cube et le mycobot
     def set_params(self, c_x, c_y, ratio):
         self.c_x = c_x
         self.c_y = c_y
         self.ratio = 220.0 / ratio
 
-    # calculate the coords between cube and mycobot
+    # calculer les coordonnées entre le cube et le mycobot
     def get_position(self, x, y):
         return ((y - self.c_y) * self.ratio +
                 self.camera_x), ((x - self.c_x) * self.ratio + self.camera_y)
 
     """
-    Calibrate the camera according to the calibration parameters.
-    Enlarge the video pixel by 1.5 times, which means enlarge the video size by 1.5 times.
-    If two ARuco values have been calculated, clip the video.
+    Calibrer la caméra en fonction des paramètres de calibration.
+    Agrandir le pixel de la vidéo de 1,5 fois, ce qui signifie agrandir la taille de la vidéo de 1,5 fois.
+    Si deux valeurs ARuco ont été calculées, couper la vidéo.
     """
 
     def transform_frame(self, frame):
-        # enlarge the image by 1.5 times
+        # agrandir l'image de 1,5 fois
         fx = 1.5
         fy = 1.5
         frame = cv2.resize(frame, (0, 0),
@@ -270,12 +269,12 @@ class Object_detect():
                            fy=fy,
                            interpolation=cv2.INTER_CUBIC)
         if self.x1 != self.x2:
-            # the cutting ratio here is adjusted according to the actual situation
+            # le rapport de coupe ici est ajusté en fonction de la situation réelle
             frame = frame[int(self.y2 * 0.2):int(self.y1 * 1.15),
                           int(self.x1 * 0.4):int(self.x2 * 1.15)]
         return frame
 
-        '''绘制类别'''
+        '''Dessiner la classe'''
     def draw_label(self,img,label,x,y):
         text_size = cv2.getTextSize(label,self.FONT_FACE,self.FONT_SCALE,self.THICKNESS)
         dim,baseline = text_size[0],text_size[1]
@@ -283,37 +282,37 @@ class Object_detect():
         cv2.putText(img,label,(x,y+dim[1]),self.FONT_FACE,self.FONT_SCALE,self.YELLOW,self.THICKNESS)
 
     '''
-    预处理
-    将图像和网络作为参数。
-    - 首先，图像被转换为​​ blob。然后它被设置为网络的输入。
-    - 该函数getUnconnectedOutLayerNames()提供输出层的名称。
-    - 它具有所有层的特征，图像通过这些层向前传播以获取检测。处理后返回检测结果。
+    Pré-traitement
+    Prend l'image et le réseau comme paramètres.
+    - Premièrement, l'image est convertie en blob. Ensuite, elle est définie comme entrée pour le réseau.
+    - La fonction getUnconnectedOutLayersNames() fournit les noms des couches de sortie.
+    - Il a les caractéristiques de toutes les couches, l'image se propage à travers ces couches pour obtenir la détection. Après traitement, le résultat de la détection est renvoyé.
     '''
     def pre_process(self,input_image,net):
         blob = cv2.dnn.blobFromImage(input_image,1/255,(self.INPUT_HEIGHT,self.INPUT_WIDTH),[0,0,0], 1, crop=False)
-        # Sets the input to the network.
+        # Définit l'entrée du réseau.
         net.setInput(blob)
-        # Run the forward pass to get output of the output layers.
+        # Exécute la passe avant pour obtenir la sortie des couches de sortie.
         outputs = net.forward(net.getUnconnectedOutLayersNames())
         return outputs
-    '''后处理
-    过滤 YOLOv5 模型给出的良好检测
-    步骤
-    - 循环检测。
-    - 过滤掉好的检测。
-    - 获取最佳班级分数的索引。
-    - 丢弃类别分数低于阈值的检测。
+    '''Post-traitement
+    Filtre les bonnes détections données par le modèle YOLOv5
+    Étapes
+    - Boucle de détection.
+    - Filtre les bonnes détections.
+    - Obtient l'index du meilleur score de classe.
+    - Rejette les détections dont le score de classe est inférieur au seuil.
     '''
     
-    # detect object
+    # détecter l'objet
     def post_process(self,input_image):
         class_ids = []
         confidences = []
         boxes = []
         blob = cv2.dnn.blobFromImage(input_image,1/255,(self.INPUT_HEIGHT,self.INPUT_WIDTH),[0,0,0], 1, crop=False)
-        # Sets the input to the network.
+        # Définit l'entrée du réseau.
         self.net.setInput(blob)
-        # Run the forward pass to get output of the output layers.
+        # Exécute la passe avant pour obtenir la sortie des couches de sortie.
         outputs = self.net.forward(self.net.getUnconnectedOutLayersNames())
         
         rows = outputs[0].shape[1]
@@ -321,10 +320,10 @@ class Object_detect():
         
         x_factor = image_width/self.INPUT_WIDTH
         y_factor = image_height/self.INPUT_HEIGHT
-        # 像素中心点
+        # point central du pixel
         cx = 0 
         cy = 0 
-        # 循环检测
+        # boucle de détection
         try:
             for r in range(rows):
                 row = outputs[0][0][r]
@@ -345,7 +344,7 @@ class Object_detect():
                         
                         
 
-                        '''非极大值抑制来获取一个标准框'''
+                        '''Suppression non maximale pour obtenir une seule boîte de délimitation'''
                         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.CONFIDENCE_THRESHOLD, self.NMS_THRESHOLD)
                        
                         for i in indices:
@@ -355,10 +354,10 @@ class Object_detect():
                             width = box[2]
                             height = box[3]
                                     
-                            # 描绘标准框
+                            # Dessiner la boîte de délimitation
                             cv2.rectangle(input_image, (left, top), (left + width, top + height),self.BLUE, 3*self.THICKNESS)
                            
-                            # 像素中心点
+                            # point central du pixel
                             cx = left+(width)//2 
                             cy = top +(height)//2
                            
@@ -366,9 +365,9 @@ class Object_detect():
                           
                             
 
-                            # 检测到的类别                      
+                            # Catégorie détectée                     
                             label = "{}:{:.2f}".format(self.classes[class_ids[i]], confidences[i])             
-                            # 绘制类real_sx, real_sy, detect.color)
+                            # dessiner l'étiquette de la classe
                              
                             self.draw_label(input_image, label, left, top)
                             
@@ -398,7 +397,7 @@ def runs():
 
     detect = Object_detect()
 
-    # init mycobot
+    # initialiser ultraArm
     detect.run()
 
     _init_ = 20  # 
@@ -407,42 +406,38 @@ def runs():
     num = 0
     real_sx = real_sy = 0
     
-    # yolov5 img path
+    # chemin de l'image yolov5
     path_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path_img = path_dir + '/res/yolov5_detect.png'
-    # open the camera
+    # ouvrir la caméra
     cap_num = 0
     cap = cv2.VideoCapture(cap_num)
-    print("*  热键(请在摄像头的窗口使用):                   *")
-    print("*  hotkey(please use it in the camera window): *")
-    print("*  z: 拍摄图片(take picture)                    *")
-    print("*  q: 退出(quit)                                *")
+    print("*  Raccourcis clavier (à utiliser dans la fenêtre de la caméra) : *")
+    print("*  z : prendre une photo (take picture)                    *")
+    print("*  q : quitter (quit)                                *")
 
     while cv2.waitKey(1)<0:
         if not status:
             cap = cv2.VideoCapture(cap_num)
             status = True
-            print("请将可识别物体放置摄像头窗口进行拍摄")
-            print("Please place an identifiable object in the camera window for shooting")
-            print("*  热键(请在摄像头的窗口使用):                   *")
-            print("*  hotkey(please use it in the camera window): *")
-            print("*  z: 拍摄图片(take picture)                    *")
-            print("*  q: 退出(quit)                                *")
-        # 读入每一帧
+            print("Veuillez placer un objet identifiable dans la fenêtre de la caméra pour la prise de vue")
+            print("*  Raccourcis clavier (à utiliser dans la fenêtre de la caméra) : *")
+            print("*  z : prendre une photo (take picture)                    *")
+            print("*  q : quitter (quit)                                *")
+        # lire chaque image
         ret, frame = cap.read()
 
         cv2.imshow("capture", frame)
                                       
 
-            # 存储
+            # sauvegarder
         input = cv2.waitKey(1) & 0xFF
         if input == ord('q'):
-            print('quit')
+            print('quitter')
             break
         elif input == ord('z'):
-            print("请截取白色识别区域的部分")
-            print("Please capture the part of the white recognition area")
-            # 选择ROI
+            print("Veuillez découper la partie de la zone de reconnaissance blanche")
+            # Sélectionner ROI
             roi = cv2.selectROI(windowName="capture",
                         img=frame,
                         showCrosshair=False,
@@ -468,7 +463,7 @@ def runs():
                 if _init_ > 0:
                     _init_-=1
                     continue
-                # calculate the parameters of camera clipping
+                # calculer les paramètres de découpage de la caméra
                 if init_num < 20:
                     if detect.get_calculate_params(frame) is None:
                         cv2.imshow("figure",frame)
@@ -494,7 +489,7 @@ def runs():
                     init_num+=1
                     continue
 
-                # calculate params of the coords between cube and mycobot
+                # calculer les paramètres des coordonnées entre le cube et mycobot
                 if nparams < 10:
                     if detect.get_calculate_params(frame) is None:
                         cv2.imshow("figure",frame)
@@ -511,18 +506,18 @@ def runs():
                         continue
                 elif nparams==10:
                     nparams+=1
-                    # calculate and set params of calculating real coord between cube and mycobot
+                    # calculer et définir les paramètres de calcul des coordonnées réelles entre le cube et mycobot
                     detect.set_params(
                         (detect.sum_x1+detect.sum_x2)/20.0, 
                         (detect.sum_y1+detect.sum_y2)/20.0, 
                         abs(detect.sum_x1-detect.sum_x2)/10.0+abs(detect.sum_y1-detect.sum_y2)/10.0
                     )
-                    print('start yolov5 recognition.....')
-                    print("ok") 
+                    print('démarrage de la reconnaissance yolov5.....')
+                    print("d'accord") 
                     continue
-                # yolov5 detect result        
+                # résultat de détection yolov5        
                 detect_result = detect.post_process(frame)
-                print('pick...')
+                print('collecte...')
                 if detect_result:
                     x, y, input_img = detect_result
                     
