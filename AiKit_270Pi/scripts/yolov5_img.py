@@ -18,26 +18,26 @@ __version__ = "1.0"  # Adaptive seeed
 class Object_detect():
 
     def __init__(self, camera_x = 150, camera_y = 7):
-        # inherit the parent class
+        # hérite de la classe parente
         super(Object_detect, self).__init__()
 
-        # declare mecharm270 pi
+        # déclaration du bras MechArm270 Pi
         self.mc = None
-        # 移动角度
+        # Angles de déplacement
         self.move_angles = [
-            [0, 0, 0, 0, 90, 0],  # init the point
-            [-33.31, 2.02, -10.72, -0.08, 95, -54.84],  # point to grab
+            [0, 0, 0, 0, 90, 0],  # position initiale
+            [-33.31, 2.02, -10.72, -0.08, 95, -54.84],  # position pour saisir
         ]
 
-        # 移动坐标
+        # Coordonnées de déplacement
         self.move_coords = [
-            [96.5, -101.9, 185.6, 155.25, 19.14, 75.88],  # D Sorting area
-            [180.9, -99.3, 184.6, 124.4, 30.9, 80.58], # C Sorting area
-            [77.4, 122.1, 179.2, 151.66, 17.94, 178.24], # A Sorting area
-            [2.2, 128.5, 171.6, 163.27, 10.58, -147.25], # B Sorting area
+            [96.5, -101.9, 185.6, 155.25, 19.14, 75.88],  # Zone de tri D
+            [180.9, -99.3, 184.6, 124.4, 30.9, 80.58],    # Zone de tri C
+            [77.4, 122.1, 179.2, 151.66, 17.94, 178.24],  # Zone de tri A
+            [2.2, 128.5, 171.6, 163.27, 10.58, -147.25],  # Zone de tri B
         ]
         
-        # which robot: USB* is m5; ACM* is wio; AMA* is raspi
+        # quel robot : USB* = m5 ; ACM* = wio ; AMA* = raspi
         self.robot_m5 = os.popen("ls /dev/ttyUSB*").readline()[:-1]
         self.robot_wio = os.popen("ls /dev/ttyACM*").readline()[:-1]
         self.robot_raspi = os.popen("ls /dev/ttyAMA*").readline()[:-1]
@@ -49,7 +49,7 @@ class Object_detect():
             # self.Pin = [20, 21]
             self.Pin = [2, 5]
 
-            # for i in self.move_coords:
+            # pour i dans self.move_coords :
             #     i[2] -= 20
         elif "dev" in self.robot_raspi or "dev" in self.robot_jes:
             import RPi.GPIO as GPIO
@@ -64,60 +64,60 @@ class Object_detect():
         if self.raspi:
             self.gpio_status(False)
    
-        # choose place to set cube
+        # choix de la zone de dépôt du cube
         self.color = 0
-        # parameters to calculate camera clipping parameters
+        # paramètres pour calculer les paramètres de découpe de la caméra
         self.x1 = self.x2 = self.y1 = self.y2 = 0
-        # set cache of real coord
+        # cache des coordonnées réelles
         self.cache_x = self.cache_y = 0
 
-        # use to calculate coord between cube and mycobot
+        # utilisé pour calculer la coordonnée entre le cube et le robot
         self.sum_x1 = self.sum_x2 = self.sum_y2 = self.sum_y1 = 0
-        # The coordinates of the grab center point relative to the mycobot
+        # Coordonnées du centre de saisie par rapport au robot
         self.camera_x, self.camera_y = camera_x, camera_y
-        # The coordinates of the cube relative to the mycobot
+        # Coordonnées du cube par rapport au robot
         self.c_x, self.c_y = 0, 0
-        # The ratio of pixels to actual values
+        # Ratio pixel/valeur réelle
         self.ratio = 0
-        # Get ArUco marker dict that can be detected.
+        # Récupère le dictionnaire des marqueurs ArUco détectables
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-        # Get ArUco marker params.
+        # Récupère les paramètres des marqueurs ArUco
         self.aruco_params = cv2.aruco.DetectorParameters_create()
         
-        # yolov5 model file path
+        # chemin du modèle yolov5
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.modelWeights = self.path + "/scripts/yolov5s.onnx"
         if IS_CV_4:
             self.net = cv2.dnn.readNet(self.modelWeights)
         else:
-            print('Load yolov5 model need the version of opencv is 4.')
+            print('Le chargement du modèle yolov5 nécessite la version 4 d\'opencv.')
             exit(0)
             
-        # Constants.
+        # Constantes
         self.INPUT_WIDTH = 640   # 640
         self.INPUT_HEIGHT = 640  # 640
         self.SCORE_THRESHOLD = 0.5
         self.NMS_THRESHOLD = 0.45 
         self.CONFIDENCE_THRESHOLD = 0.45
         
-        # Text parameters.
+        # Paramètres du texte
         self.FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
         self.FONT_SCALE = 0.7
         self.THICKNESS = 1
         
-        # Colors.
+        # Couleurs
         self.BLACK  = (0,0,0)
         self.BLUE   = (255,178,50)
         self.YELLOW = (0,255,255)
         
-        '''加载类别名'''
+        '''Chargement des noms de classes'''
         classesFile = self.path + "/scripts/coco.names"
         self.classes = None
         with open(classesFile, 'rt') as f:
             self.classes = f.read().rstrip('\n').split('\n')
        
 
-    # pump_control pi
+    # Contrôle de la pompe pour Raspberry Pi
     def gpio_status(self, flag):
         if flag:
             self.GPIO.output(20, 0)
@@ -126,25 +126,25 @@ class Object_detect():
             self.GPIO.output(20, 1)
             self.GPIO.output(21, 1)
 
-    # 开启吸泵 m5
+    # Allumer la pompe (m5)
     def pump_on(self):
-        # 让2号位工作
+        # Active la sortie 2
         self.mc.set_basic_output(2, 0)
-        # 让5号位工作
+        # Active la sortie 5
         self.mc.set_basic_output(5, 0)
 
-    # 停止吸泵 m5
+    # Éteindre la pompe (m5)
     def pump_off(self):
-        # 让2号位停止工作
+        # Désactive la sortie 2
         self.mc.set_basic_output(2, 1)
-        # 让5号位停止工作
+        # Désactive la sortie 5
         self.mc.set_basic_output(5, 1)
 
     def check_position(self, data, ids):
         """
-        循环检测是否到位某个位置
-        :param data: 角度或者坐标
-        :param ids: 角度-0，坐标-1
+        Boucle pour vérifier si le robot est arrivé à une position
+        :param data: angle ou coordonnées
+        :param ids: 0 pour angle, 1 pour coordonnées
         :return:
         """
         try:
@@ -159,17 +159,16 @@ class Object_detect():
             e = traceback.format_exc()
             print(e)
 
-    # Grasping motion
+    # Mouvement de saisie
     def move(self, x, y, color):
         print(color)
-        # send Angle to move mecharm 270
+        # Envoie les angles pour déplacer le bras
         self.mc.send_angles(self.move_angles[0], 50)
         self.check_position(self.move_angles[0], 0)
 
-        # send coordinates to move mycobot
+        # Envoie les coordonnées pour déplacer le robot
         self.mc.send_coords([x, y, 150, -176.1, 2.4, -125.1], 40, 1) # usb :rx,ry,rz -173.3, -5.48, -57.9
 
-        
         # self.mc.send_coords([x, y, 150, 179.87, -3.78, -62.75], 25, 0)
         # time.sleep(3)
 
@@ -178,7 +177,7 @@ class Object_detect():
         
         self.check_position([x, y, 70, -176.1, 2.4, -125.1], 1)
 
-        # open pump
+        # Allume la pompe
         if "dev" in self.robot_m5 or "dev" in self.robot_wio:
             self.pump_on()
         elif "dev" in self.robot_raspi or "dev" in self.robot_jes:
@@ -197,12 +196,10 @@ class Object_detect():
         self.mc.send_angles([tmp[0], 17.22, -32.51, tmp[3], 97, tmp[5]],30) # [18.8, -7.91, -54.49, -23.02, -0.79, -14.76]
         self.check_position([tmp[0], 17.22, -32.51, tmp[3], 97, tmp[5]], 0)
 
-
-
         self.mc.send_coords(self.move_coords[color], 40, 1)
         self.check_position(self.move_coords[color], 1)
 
-        # close pump
+        # Éteint la pompe
         if "dev" in self.robot_m5 or "dev" in self.robot_wio:
             self.pump_off()
         elif "dev" in self.robot_raspi or "dev" in self.robot_jes:
@@ -213,23 +210,22 @@ class Object_detect():
         self.check_position(self.move_angles[1], 0)
 
         print('请按空格键打开摄像头进行下一次图像存储和识别')
-        print('Please press the space bar to open the camera for the next image storage and recognition')
+        print('Veuillez appuyer sur la barre d\'espace pour ouvrir la caméra pour le prochain stockage et reconnaissance d\'image')
 
-    # decide whether grab cube
+    # Décider si on saisit le cube
     def decide_move(self, x, y, color):
         # print(x, y, self.cache_x, self.cache_y)
-        # detect the cube status move or run
+        # détecte si le cube bouge ou non
         #if (abs(x - self.cache_x) + abs(y - self.cache_y)) / 2 > 5:  # mm
             #self.cache_x, self.cache_y = x, y
             #return
         #else:
         self.cache_x = self.cache_y = 0
-        # 调整吸泵吸取位置，y增大,向左移动;y减小,向右移动;x增大,前方移动;x减小,向后方移动
-   
+        # Ajuste la position d'aspiration : y augmente = déplacement à gauche ; y diminue = déplacement à droite ; x augmente = déplacement vers l'avant ; x diminue = déplacement vers l'arrière
         self.move(x, y, color)
       
 
-    # init mycobot
+    # Initialisation du robot
     def run(self):
     
         if "dev" in self.robot_wio :
@@ -243,9 +239,9 @@ class Object_detect():
         time.sleep(3)
 
 
-    # draw aruco
+    # Dessiner un marqueur aruco
     def draw_marker(self, img, x, y):
-        # draw rectangle on img
+        # dessine un rectangle sur l'image
         cv2.rectangle(
             img,
             (x - 20, y - 20),
@@ -254,7 +250,7 @@ class Object_detect():
             thickness=2,
             lineType=cv2.FONT_HERSHEY_COMPLEX,
         )
-        # add text on rectangle
+        # ajoute du texte sur le rectangle
         cv2.putText(
             img,
             "({},{})".format(x, y),
@@ -265,18 +261,18 @@ class Object_detect():
             2,
         )
 
-    # get points of two aruco
+    # Récupère les points des deux aruco
     def get_calculate_params(self, img):
-        # Convert the image to a gray image
+        # Convertit l'image en niveaux de gris
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Detect ArUco marker.
+        # Détecte les marqueurs ArUco
         corners, ids, rejectImaPoint = cv2.aruco.detectMarkers(
             gray, self.aruco_dict, parameters=self.aruco_params)
 
         """
-        Two Arucos must be present in the picture and in the same order.
-        There are two Arucos in the Corners, and each aruco contains the pixels of its four corners.
-        Determine the center of the aruco by the four corners of the aruco.
+        Deux Aruco doivent être présents sur l'image et dans le même ordre.
+        Il y a deux Aruco dans corners, et chaque aruco contient les pixels de ses quatre coins.
+        Détermine le centre de l'aruco à partir de ses quatre coins.
         """
         if len(corners) > 0:
             if ids is not None:
@@ -299,7 +295,7 @@ class Object_detect():
                 return x1, x2, y1, y2
         return None
 
-    # set camera clipping parameters
+    # Définit les paramètres de découpe de la caméra
     def set_cut_params(self, x1, y1, x2, y2):
         self.x1 = int(x1)
         self.y1 = int(y1)
@@ -307,25 +303,25 @@ class Object_detect():
         self.y2 = int(y2)
         print(self.x1, self.y1, self.x2, self.y2)
 
-    # set parameters to calculate the coords between cube and mycobot
+    # Définit les paramètres pour calculer la coordonnée entre le cube et le robot
     def set_params(self, c_x, c_y, ratio):
         self.c_x = c_x
         self.c_y = c_y
         self.ratio = 220.0 / ratio
 
-    # calculate the coords between cube and mycobot
+    # Calcule la coordonnée entre le cube et le robot
     def get_position(self, x, y):
         return ((y - self.c_y) * self.ratio +
                 self.camera_x), ((x - self.c_x) * self.ratio + self.camera_y)
 
     """
-    Calibrate the camera according to the calibration parameters.
-    Enlarge the video pixel by 1.5 times, which means enlarge the video size by 1.5 times.
-    If two ARuco values have been calculated, clip the video.
+    Calibre la caméra selon les paramètres de calibration.
+    Agrandit l'image vidéo de 1,5 fois.
+    Si deux valeurs ArUco ont été calculées, découpe la vidéo.
     """
 
     def transform_frame(self, frame):
-        # enlarge the image by 1.5 times
+        # agrandit l'image de 1,5 fois
         fx = 1.5
         fy = 1.5
         frame = cv2.resize(frame, (0, 0),
@@ -333,12 +329,12 @@ class Object_detect():
                            fy=fy,
                            interpolation=cv2.INTER_CUBIC)
         if self.x1 != self.x2:
-            # the cutting ratio here is adjusted according to the actual situation
+            # le ratio de découpe ici est ajusté selon la situation réelle
             frame = frame[int(self.y2 * 0.2):int(self.y1 * 1.15),
                           int(self.x1 * 0.4):int(self.x2 * 1.15)]
         return frame
 
-        '''绘制类别'''
+        '''Dessine la classe détectée'''
     def draw_label(self,img,label,x,y):
         text_size = cv2.getTextSize(label,self.FONT_FACE,self.FONT_SCALE,self.THICKNESS)
         dim,baseline = text_size[0],text_size[1]
@@ -346,37 +342,38 @@ class Object_detect():
         cv2.putText(img,label,(x,y+dim[1]),self.FONT_FACE,self.FONT_SCALE,self.YELLOW,self.THICKNESS)
 
     '''
-    预处理
-    将图像和网络作为参数。
-    - 首先，图像被转换为​​ blob。然后它被设置为网络的输入。
-    - 该函数getUnconnectedOutLayerNames()提供输出层的名称。
-    - 它具有所有层的特征，图像通过这些层向前传播以获取检测。处理后返回检测结果。
+    Prétraitement
+    Prend l'image et le réseau comme paramètres.
+    - L'image est convertie en blob puis définie comme entrée du réseau.
+    - La fonction getUnconnectedOutLayerNames() fournit les noms des couches de sortie.
+    - L'image passe à travers toutes les couches pour obtenir les détections.
+    - Retourne les résultats de détection.
     '''
     def pre_process(self,input_image,net):
         blob = cv2.dnn.blobFromImage(input_image,1/255,(self.INPUT_HEIGHT,self.INPUT_WIDTH),[0,0,0], 1, crop=False)
-        # Sets the input to the network.
+        # Définit l'entrée du réseau
         net.setInput(blob)
-        # Run the forward pass to get output of the output layers.
+        # Passe avant pour obtenir la sortie des couches de sortie
         outputs = net.forward(net.getUnconnectedOutLayersNames())
         return outputs
-    '''后处理
-    过滤 YOLOv5 模型给出的良好检测
-    步骤
-    - 循环检测。
-    - 过滤掉好的检测。
-    - 获取最佳班级分数的索引。
-    - 丢弃类别分数低于阈值的检测。
+    '''Post-traitement
+    Filtre les bonnes détections du modèle YOLOv5
+    Étapes :
+    - Boucle sur les détections.
+    - Filtre les bonnes détections.
+    - Récupère l'indice du score de classe le plus élevé.
+    - Ignore les détections dont le score de classe est trop faible.
     '''
     
-    # detect object
+    # Détection d'objet
     def post_process(self,input_image):
         class_ids = []
         confidences = []
         boxes = []
         blob = cv2.dnn.blobFromImage(input_image,1/255,(self.INPUT_HEIGHT,self.INPUT_WIDTH),[0,0,0], 1, crop=False)
-        # Sets the input to the network.
+        # Définit l'entrée du réseau
         self.net.setInput(blob)
-        # Run the forward pass to get output of the output layers.
+        # Passe avant pour obtenir la sortie des couches de sortie
         outputs = self.net.forward(self.net.getUnconnectedOutLayersNames())
         
         rows = outputs[0].shape[1]
@@ -384,10 +381,10 @@ class Object_detect():
         
         x_factor = image_width/self.INPUT_WIDTH
         y_factor = image_height/self.INPUT_HEIGHT
-        # 像素中心点
+        # Centre du pixel
         cx = 0 
         cy = 0 
-        # 循环检测
+        # Boucle sur les détections
         try:
             for r in range(rows):
                 row = outputs[0][0][r]
@@ -406,9 +403,7 @@ class Object_detect():
                         box = np.array([left, top, width, height])
                         boxes.append(box)
                         
-                        
-
-                        '''非极大值抑制来获取一个标准框'''
+                        '''Suppression non maximale pour obtenir une boîte standard'''
                         indices = cv2.dnn.NMSBoxes(boxes, confidences, self.CONFIDENCE_THRESHOLD, self.NMS_THRESHOLD)
                        
                         for i in indices:
@@ -418,21 +413,18 @@ class Object_detect():
                             width = box[2]
                             height = box[3]
                                     
-                            # 描绘标准框
+                            # Dessine la boîte standard
                             cv2.rectangle(input_image, (left, top), (left + width, top + height),self.BLUE, 3*self.THICKNESS)
                            
-                            # 像素中心点
+                            # Centre du pixel
                             cx = left+(width)//2 
                             cy = top +(height)//2
                            
                             cv2.circle(input_image, (cx,cy),  5,self.BLUE, 10)
                           
-                            
-
-                            # 检测到的类别                      
+                            # Classe détectée                     
                             label = "{}:{:.2f}".format(self.classes[class_ids[i]], confidences[i])             
-                            # 绘制类real_sx, real_sy, detect.color)
-                             
+                            # Dessine la classe
                             self.draw_label(input_image, label, left, top)
                             
                 #cv2.imshow("nput_frame",input_image)
@@ -608,7 +600,7 @@ def runs():
 if __name__ == "__main__":
 
     runs()
-    
+
 
 
 
