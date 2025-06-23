@@ -12,32 +12,32 @@ IS_CV_4 = cv2.__version__[0] == '4'
 __version__ = "1.0"
 
 
-# Adaptive seeed
+# Seeed adaptatif
 
 
 class Object_detect():
 
     def __init__(self, camera_x=162, camera_y=15):
-        # inherit the parent class
+        # hériter de la classe parente
         super(Object_detect, self).__init__()
-        # declare mycobot280
+        # déclarer mycobot280
         self.mc = None
 
-        # 移动角度
+        # Angle de mouvement
         self.move_angles = [
-            [0.61, 45.87, -92.37, -41.3, 2.02, 9.58],  # init the point
-            [18.8, -7.91, -54.49, -23.02, -0.79, -14.76],  # point to grab
+            [0.61, 45.87, -92.37, -41.3, 2.02, 9.58],  # initialiser le point
+            [18.8, -7.91, -54.49, -23.02, -0.79, -14.76],  # pointer pour saisir
         ]
 
-        # 移动坐标
+        # Coordonnées de déplacement
         self.move_coords = [
-            [132.2, -136.9, 200.8, -178.24, -3.72, -107.17],  # D Sorting area
-            [238.8, -124.1, 204.3, -169.69, -5.52, -96.52],  # C Sorting area
-            [115.8, 177.3, 210.6, 178.06, -0.92, -6.11],  # A Sorting area
-            [-6.9, 173.2, 201.5, 179.93, 0.63, 33.83],  # B Sorting area
+            [132.2, -136.9, 200.8, -178.24, -3.72, -107.17],  # Zone de tri D
+            [238.8, -124.1, 204.3, -169.69, -5.52, -96.52],  # Zone de tri C
+            [115.8, 177.3, 210.6, 178.06, -0.92, -6.11],  # Zone de tri A
+            [-6.9, 173.2, 201.5, 179.93, 0.63, 33.83],  # Zone de tri B
         ]
 
-        # which robot: USB* is m5; ACM* is wio; AMA* is raspi
+        # quel robot : USB* est m5 ; ACM* est wio ; AMA* est raspi
         self.robot_m5 = os.popen("ls /dev/ttyUSB*").readline()[:-1]
         self.robot_wio = os.popen("ls /dev/ttyACM*").readline()[:-1]
         self.robot_raspi = os.popen("ls /dev/ttyAMA*").readline()[:-1]
@@ -64,30 +64,30 @@ class Object_detect():
         if self.raspi:
             self.gpio_status(False)
 
-        # choose place to set cube
+        # choisir l'endroit pour poser le cube
         self.color = 0
-        # parameters to calculate camera clipping parameters
+        # paramètres pour calculer les paramètres de découpage de la caméra
         self.x1 = self.x2 = self.y1 = self.y2 = 0
-        # set cache of real coord
+        # définir le cache des coordonnées réelles
         self.cache_x = self.cache_y = 0
 
-        # use to calculate coord between cube and mycobot
+        # utiliser pour calculer les coordonnées entre le cube et le mycobot
         self.sum_x1 = self.sum_x2 = self.sum_y2 = self.sum_y1 = 0
-        # The coordinates of the grab center point relative to the mycobot
+        # Les coordonnées du point central de préhension par rapport au mycobot
         self.camera_x, self.camera_y = camera_x, camera_y
-        # The coordinates of the cube relative to the mycobot
+        # Les coordonnées du cube par rapport au mycobot
         self.c_x, self.c_y = 0, 0
-        # The ratio of pixels to actual values
+        # Le rapport des pixels aux valeurs réelles
         self.ratio = 0
-        # Get ArUco marker dict that can be detected.
+        # Obtenir le dictionnaire de marqueurs ArUco qui peut être détecté.
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-        # Get ArUco marker params.
+        # Obtenir les paramètres du marqueur ArUco.
         self.aruco_params = cv2.aruco.DetectorParameters_create()
 
-        # 初始化背景减法器
+        # Initialiser le soustracteur de fond
         self.mog = cv2.bgsegm.createBackgroundSubtractorMOG()
 
-        # pump_control pi
+        # contrôle de la pompe pi
 
     def gpio_status(self, flag):
         if flag:
@@ -97,25 +97,25 @@ class Object_detect():
             self.GPIO.output(20, 1)
             self.GPIO.output(21, 1)
 
-    # 开启吸泵 m5
+    # démarrer la pompe m5
     def pump_on(self):
-        # 让2号位工作
+        # faire fonctionner la broche 2
         self.mc.set_basic_output(2, 0)
-        # 让5号位工作
+        # faire fonctionner la broche 5
         self.mc.set_basic_output(5, 0)
 
-    # 停止吸泵 m5
+    # arrêter la pompe m5
     def pump_off(self):
-        # 让2号位停止工作
+        # arrêter de faire fonctionner la broche 2
         self.mc.set_basic_output(2, 1)
-        # 让5号位停止工作
+        # arrêter de faire fonctionner la broche 5
         self.mc.set_basic_output(5, 1)
 
     def check_position(self, data, ids):
         """
-        循环检测是否到位某个位置
-        :param data: 角度或者坐标
-        :param ids: 角度-0，坐标-1
+        Vérifier de manière répétée si une position est atteinte
+        :param data: angle ou coordonnées
+        :param ids: angle-0, coordonnées-1
         :return:
         """
         try:
@@ -130,14 +130,14 @@ class Object_detect():
             e = traceback.format_exc()
             print(e)
 
-    # Grasping motion
+    # Mouvement de préhension
     def move(self, x, y, color):
-        # send Angle to move mycobot280
+        # envoyer l'angle pour déplacer mycobot280
         print(color)
         self.mc.send_angles(self.move_angles[1], 25)
         self.check_position(self.move_angles[1], 0)
 
-        # send coordinates to move mycobot
+        # envoyer les coordonnées pour déplacer le mycobot
         self.mc.send_coords([x, y, 170.6, 179.87, -3.78, -62.75], 40, 1)  # usb :rx,ry,rz -173.3, -5.48, -57.9
 
         # self.mc.send_coords([x, y, 150, 179.87, -3.78, -62.75], 25, 0)
@@ -147,7 +147,7 @@ class Object_detect():
         data = [x, y, 65.5, 179.87, -3.78, -62.75]
         self.check_position(data, 1)
 
-        # open pump
+        # ouvrir la pompe
         if "dev" in self.robot_m5 or "dev" in self.robot_wio:
             self.pump_on()
         elif "dev" in self.robot_raspi or "dev" in self.robot_jes:
@@ -171,7 +171,7 @@ class Object_detect():
 
         self.check_position(self.move_coords[color], 1)
 
-        # close pump
+        # fermer la pompe
 
         if "dev" in self.robot_m5 or "dev" in self.robot_wio:
             self.pump_off()
@@ -182,19 +182,19 @@ class Object_detect():
         self.mc.send_angles(self.move_angles[0], 25)
         self.check_position(self.move_angles[0], 0)
 
-    # decide whether grab cube
+    # décider de saisir le cube ou non
     def decide_move(self, x, y, color):
         print(x, y, self.cache_x, self.cache_y)
-        # detect the cube status move or run
+        # détecter l'état du cube en mouvement ou en cours d'exécution
         if (abs(x - self.cache_x) + abs(y - self.cache_y)) / 2 > 5:  # mm
             self.cache_x, self.cache_y = x, y
             return
         else:
             self.cache_x = self.cache_y = 0
-            # 调整吸泵吸取位置，y增大,向左移动;y减小,向右移动;x增大,前方移动;x减小,向后方移动
+            # Ajuster la position d'aspiration de la pompe, augmenter y pour se déplacer vers la gauche ; diminuer y pour se déplacer vers la droite ; augmenter x pour avancer ; diminuer x pour reculer
             self.move(x, y, color)
 
-    # init mycobot280
+    # initialiser mycobot280
     def run(self):
 
         if "dev" in self.robot_wio:
@@ -207,9 +207,9 @@ class Object_detect():
         self.mc.send_angles([0.61, 45.87, -92.37, -41.3, 2.02, 9.58], 20)
         self.check_position([0.61, 45.87, -92.37, -41.3, 2.02, 9.58], 0)
 
-    # draw aruco
+    # dessiner le marqueur aruco
     def draw_marker(self, img, x, y):
-        # draw rectangle on img
+        # dessiner un rectangle sur l'img
         cv2.rectangle(
             img,
             (x - 20, y - 20),
@@ -218,23 +218,23 @@ class Object_detect():
             thickness=2,
             lineType=cv2.FONT_HERSHEY_COMPLEX,
         )
-        # add text on rectangle
+        # ajouter du texte sur le rectangle
         cv2.putText(img, "({},{})".format(x, y), (x, y),
                     cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (243, 0, 0), 2, )
 
-    # get points of two aruco
+    # obtenir les points de deux aruco
     def get_calculate_params(self, img):
-        # Convert the image to a gray image
+        # Convertir l'image en une image en niveaux de gris
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Detect ArUco marker.
+        # Détecter le marqueur ArUco.
         corners, ids, rejectImaPoint = cv2.aruco.detectMarkers(
             gray, self.aruco_dict, parameters=self.aruco_params
         )
 
         """
-        Two Arucos must be present in the picture and in the same order.
-        There are two Arucos in the Corners, and each aruco contains the pixels of its four corners.
-        Determine the center of the aruco by the four corners of the aruco.
+        Deux Arucos doivent être présents sur l'image et dans le même ordre.
+        Il y a deux Arucos dans les Coins, et chaque aruco contient les pixels de ses quatre coins.
+        Déterminer le centre de l'aruco par les quatre coins de l'aruco.
         """
         if len(corners) > 0:
             if ids is not None:
@@ -250,7 +250,7 @@ class Object_detect():
                 return x1, x2, y1, y2
         return None
 
-    # set camera clipping parameters
+    # définir les paramètres de découpage de la caméra
     def set_cut_params(self, x1, y1, x2, y2):
         self.x1 = int(x1)
         self.y1 = int(y1)
@@ -258,251 +258,156 @@ class Object_detect():
         self.y2 = int(y2)
         print(self.x1, self.y1, self.x2, self.y2)
 
-    # set parameters to calculate the coords between cube and mycobot280
+    # définir les paramètres pour calculer les coordonnées du cube
     def set_params(self, c_x, c_y, ratio):
         self.c_x = c_x
         self.c_y = c_y
         self.ratio = 220.0 / ratio
 
-    # calculate the coords between cube and mycobot280
+    # calculer les coordonnées du cube
     def get_position(self, x, y):
         return ((y - self.c_y) * self.ratio + self.camera_x), ((x - self.c_x) * self.ratio + self.camera_y)
 
     """
-    Calibrate the camera according to the calibration parameters.
-    Enlarge the video pixel by 1.5 times, which means enlarge the video size by 1.5 times.
-    If two ARuco values have been calculated, clip the video.
+    Calibrer la caméra en fonction des paramètres de calibration.
+    Agrandir le pixel de la vidéo de 1,5 fois, ce qui signifie agrandir la taille de la vidéo de 1,5 fois.
+    Si deux valeurs ARuco ont été calculées, couper la vidéo.
     """
 
     def transform_frame(self, frame):
-        # enlarge the image by 1.5 times
+        # agrandir l'image de 1,5 fois
         fx = 1.5
         fy = 1.5
-        frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy,
-                           interpolation=cv2.INTER_CUBIC)
+        frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
         if self.x1 != self.x2:
-            # the cutting ratio here is adjusted according to the actual situation
+            # le rapport de coupe ici est ajusté en fonction de la situation réelle
             frame = frame[int(self.y2 * 0.78):int(self.y1 * 1.1),
                     int(self.x1 * 0.88):int(self.x2 * 1.06)]
         return frame
 
-    # 检测物体的形状
+    # fonction de détection par vision par ordinateur
+    # d'abord, supprimer l'arrière-plan
     def shape_detect(self, img):
-        x = 0
-        y = 0
-        Alpha = 65.6
-        Gamma = -8191.5
-        cal = cv2.addWeighted(img, Alpha, img, 0, Gamma)
-        gray = cv2.cvtColor(cal, cv2.COLOR_BGR2GRAY)
+        fgmask = self.mog.apply(img)
+        # Niveaux de gris, binaire
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # 转换为灰度图片
-        # ray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        # Localiser le contour de l'objet
+        contours, hierarchy = cv2.findContours(
+            fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # a etching operation on a picture to remove edge roughness
-        erosion = cv2.erode(gray, np.ones((2, 2), np.uint8), iterations=2)
+        for c in contours:
+            # Calculer l'aire du contour et estimer la forme
+            # Filtrer les petits contours
+            if cv2.contourArea(c) < 2000:
+                continue
+            # Trouver le plus petit rectangle circonscrit
+            rect = cv2.minAreaRect(c)
+            # Calculer les coordonnées du centre du rectangle
+            cx, cy = rect[0]
+            # dessiner le rectangle
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            cv2.drawContours(img, [box], 0, (0, 255, 0), 2)
+            return cx, cy
 
-        # the image for expansion operation, its role is to deepen the color depth in the picture
-        dilation = cv2.dilate(erosion, np.ones(
-            (1, 1), np.uint8), iterations=2)
-
-        # 设定灰度图的阈值 175, 255
-        _, threshold = cv2.threshold(dilation, 175, 255, cv2.THRESH_BINARY)
-        # 边缘检测
-        edges = cv2.Canny(threshold, 50, 100)
-        # 检测物体边框
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-        if len(contours) > 0:
-            for cnt in contours:
-                # if 6000>cv2.contourArea(cnt) and cv2.contourArea(cnt)>4500:
-                if cv2.contourArea(cnt) > 5500:
-                    objectType = None
-                    peri = cv2.arcLength(cnt, True)
-                    approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-                    objCor = len(approx)
-                    x, y, w, h = cv2.boundingRect(approx)
-
-                    boxes = [
-                        box
-                        for box in [cv2.boundingRect(c) for c in contours]
-                        if min(img.shape[0], img.shape[1]) / 10
-                           < min(box[2], box[3])
-                           < min(img.shape[0], img.shape[1]) / 1
-                    ]
-                    if boxes:
-                        for box in boxes:
-                            x, y, w, h = box
-                        # find the largest object that fits the requirements
-                        c = max(contours, key=cv2.contourArea)
-                        rect = cv2.minAreaRect(c)
-                        box = cv2.boxPoints(rect)
-                        box = np.int0(box)
-                        cv2.drawContours(img, [box], 0, (153, 153, 0), 2)
-                        x = int(rect[0][0])
-                        y = int(rect[0][1])
-
-                    if objCor == 3:
-                        objectType = "Triangle(三角形)"
-                        cv2.drawContours(img, [cnt], 0, (0, 0, 255), 3)
-                        self.color = 3
-                    elif objCor == 4:
-                        box = cv2.boxPoints(rect)
-                        box = np.int0(box)
-                        _W = math.sqrt(math.pow((box[0][0] - box[1][0]), 2) + math.pow((box[0][1] - box[1][1]), 2))
-                        _H = math.sqrt(math.pow((box[0][0] - box[3][0]), 2) + math.pow((box[0][1] - box[3][1]), 2))
-                        aspRatio = _W / float(_H)
-                        if 0.98 < aspRatio < 1.03:
-                            objectType = "Square(正方形)"
-                            cv2.drawContours(img, [cnt], 0, (0, 0, 255), 3)
-                            self.color = 1
-                        else:
-                            objectType = "Rectangle(长方形)"
-                            cv2.drawContours(img, [cnt], 0, (0, 0, 255), 3)
-                            self.color = 2
-                    elif objCor >= 5:
-                        objectType = "Circle(圆形)"
-                        self.color = 0
-                        cv2.drawContours(img, [cnt], 0, (0, 0, 255), 3)
-                    else:
-                        pass
-                    print(objectType)
-
-        if abs(x) + abs(y) > 0:
-            return x, y
-        else:
-            return None
+        return None, None
 
 
 def shape_single():
-    # open the camera
+    # ouvrir la caméra
     cap_num = 0
-    # cap = cv2.VideoCapture(cap_num, cv2.CAP_V4L)
-    cap = cv2.VideoCapture(cap_num)
-    cap.set(3, 640)
-    cap.set(4, 480)
+    cap = cv2.VideoCapture(cap_num, cv2.CAP_DSHOW)
     if not cap.isOpened():
         cap.open()
-    # init a class of Object_detect
-    detect = Object_detect()
     # init mycobot280
+    detect = Object_detect()
     detect.run()
-    # Control the number of crawls 控制抓取次数
-    count = 0
 
     _init_ = 20
     init_num = 0
     nparams = 0
     num = 0
     real_sx = real_sy = 0
+    print('Début')
     while cv2.waitKey(1) < 0:
-        # read camera
+        # lire chaque image
         _, frame = cap.read()
-        # deal img
+        # retourner l'image
+        # frame = cv2.flip(frame, 1)
+        # traitement de l'image
         frame = detect.transform_frame(frame)
-        if _init_ > 0:
-            _init_ -= 1
-            continue
-
-        # calculate the parameters of camera clipping
-        if init_num < 20:
-            if detect.get_calculate_params(frame) is None:
-                cv2.imshow("figure", frame)
-                continue
-            else:
-                x1, x2, y1, y2 = detect.get_calculate_params(frame)
-                detect.draw_marker(frame, x1, y1)
-                detect.draw_marker(frame, x2, y2)
-                detect.sum_x1 += x1
-                detect.sum_x2 += x2
-                detect.sum_y1 += y1
-                detect.sum_y2 += y2
-                init_num += 1
-                continue
-        elif init_num == 20:
-            detect.set_cut_params(
-                (detect.sum_x1) / 20.0,
-                (detect.sum_y1) / 20.0,
-                (detect.sum_x2) / 20.0,
-                (detect.sum_y2) / 20.0,
-            )
-            detect.sum_x1 = detect.sum_x2 = detect.sum_y1 = detect.sum_y2 = 0
-            init_num += 1
-            continue
-
-        # calculate params of the coords between cube and mycobot280
+        # Obtenir les coordonnées des deux ArUcos
         if nparams < 10:
-            if detect.get_calculate_params(frame) is None:
-                cv2.imshow("figure", frame)
-                continue
-            else:
-                x1, x2, y1, y2 = detect.get_calculate_params(frame)
-                detect.draw_marker(frame, x1, y1)
-                detect.draw_marker(frame, x2, y2)
-                detect.sum_x1 += x1
-                detect.sum_x2 += x2
-                detect.sum_y1 += y1
-                detect.sum_y2 += y2
+            # Obtenir les coordonnées des deux arucos et les attribuer aux paramètres de découpe
+            params = detect.get_calculate_params(frame)
+            if params is not None:
+                detect.set_cut_params(params[0], params[1], params[2], params[3])
                 nparams += 1
                 continue
-        elif nparams == 10:
-            nparams += 1
-            # calculate and set params of calculating real coord between cube and mycobot280
-            detect.set_params(
-                (detect.sum_x1 + detect.sum_x2) / 20.0,
-                (detect.sum_y1 + detect.sum_y2) / 20.0,
-                abs(detect.sum_x1 - detect.sum_x2) / 10.0 +
-                abs(detect.sum_y1 - detect.sum_y2) / 10.0
-            )
-            print("ok")
-            continue
-
-        if count < 2:
-            # get detect result
-            # print('调用检测')
-            detect_result = detect.shape_detect(frame)
-            # print("完成检测")
-            if detect_result is None:
-                cv2.imshow("figure", frame)
+            #
+            cv2.imshow("figure", frame)
+        # Obtenir les coordonnées des deux ArUcos et calculer le rapport des coordonnées du cube
+        elif nparams >= 10 and nparams < 20:
+            # Obtenir le centre des deux arucos
+            params = detect.get_calculate_params(frame)
+            # calculer
+            if params is not None:
+                detect.sum_x1 += params[0]
+                detect.sum_x2 += params[1]
+                detect.sum_y1 += params[2]
+                detect.sum_y2 += params[3]
+                nparams += 1
+                if nparams == 20:
+                    detect.set_params(
+                        (detect.sum_x1 + detect.sum_x2) / 20.0,
+                        (detect.sum_y1 + detect.sum_y2) / 20.0,
+                        abs(detect.sum_x1 - detect.sum_x2) / 10.0,
+                    )
+                    print("Paramètres de l'appareil photo OK")
                 continue
-            else:
-                x, y = detect_result
-                # calculate real coord between cube and mycobot280
-                real_x, real_y = detect.get_position(x, y)
-                if num == 20:
-
-                    detect.decide_move(real_sx / 20.0, real_sy / 20.0, detect.color)
-                    num = real_sx = real_sy = 0
-                    count += 1
-
-                else:
-                    num += 1
-                    real_sy += real_y
-                    real_sx += real_x
+            #
+            cv2.imshow("figure", frame)
         else:
-            break
+            #
+            # Détecter le centre du cube
+            x, y = detect.shape_detect(frame)
+            if x is not None:
+                # Obtenir les coordonnées réelles du cube par rapport au mycobot
+                real_x, real_y = detect.get_position(x, y)
 
-        cv2.imshow("figure", frame)
+                #
+                color = 0
 
-        # close the window
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            cap.release()
-            cv2.destroyAllWindows()
-            sys.exit()
+                #
+                if real_y > 30:
+                    #
+                    color = 2
+                elif real_y < -30:
+                    #
+                    color = 3
+                else:
+                    color = 1
+                detect.move(real_x, real_y, color)
+                #
+                print('OK')
+                #
+                break
+            #
+            cv2.imshow("figure", frame)
+    #
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 def shape_loop():
-    # open the camera
+    # ouvrir la caméra
     cap_num = 0
-    # cap = cv2.VideoCapture(cap_num, cv2.CAP_V4L)
-    cap = cv2.VideoCapture(cap_num)
-    cap.set(3, 640)
-    cap.set(4, 480)
+    cap = cv2.VideoCapture(cap_num, cv2.CAP_DSHOW)
     if not cap.isOpened():
         cap.open()
-    # init a class of Object_detect
-    detect = Object_detect()
     # init mycobot280
+    detect = Object_detect()
     detect.run()
 
     _init_ = 20
@@ -510,111 +415,78 @@ def shape_loop():
     nparams = 0
     num = 0
     real_sx = real_sy = 0
+    print('Début')
+    # Boucle pour identifier et saisir
     while cv2.waitKey(1) < 0:
-        # read camera
+        # lire chaque image
         _, frame = cap.read()
-        # deal img
+        # retourner l'image
+        # frame = cv2.flip(frame, 1)
+        # traitement de l'image
         frame = detect.transform_frame(frame)
-        if _init_ > 0:
-            _init_ -= 1
-            continue
-
-        # calculate the parameters of camera clipping
-        if init_num < 20:
-            if detect.get_calculate_params(frame) is None:
-                cv2.imshow("figure", frame)
-                continue
-            else:
-                x1, x2, y1, y2 = detect.get_calculate_params(frame)
-                detect.draw_marker(frame, x1, y1)
-                detect.draw_marker(frame, x2, y2)
-                detect.sum_x1 += x1
-                detect.sum_x2 += x2
-                detect.sum_y1 += y1
-                detect.sum_y2 += y2
-                init_num += 1
-                continue
-        elif init_num == 20:
-            detect.set_cut_params(
-                (detect.sum_x1) / 20.0,
-                (detect.sum_y1) / 20.0,
-                (detect.sum_x2) / 20.0,
-                (detect.sum_y2) / 20.0,
-            )
-            detect.sum_x1 = detect.sum_x2 = detect.sum_y1 = detect.sum_y2 = 0
-            init_num += 1
-            continue
-
-        # calculate params of the coords between cube and mycobot280
+        # Obtenir les coordonnées des deux ArUcos
         if nparams < 10:
-            if detect.get_calculate_params(frame) is None:
-                cv2.imshow("figure", frame)
-                continue
-            else:
-                x1, x2, y1, y2 = detect.get_calculate_params(frame)
-                detect.draw_marker(frame, x1, y1)
-                detect.draw_marker(frame, x2, y2)
-                detect.sum_x1 += x1
-                detect.sum_x2 += x2
-                detect.sum_y1 += y1
-                detect.sum_y2 += y2
+            # Obtenir les coordonnées des deux arucos et les attribuer aux paramètres de découpe
+            params = detect.get_calculate_params(frame)
+            if params is not None:
+                detect.set_cut_params(params[0], params[1], params[2], params[3])
                 nparams += 1
                 continue
-        elif nparams == 10:
-            nparams += 1
-            # calculate and set params of calculating real coord between cube and mycobot280
-            detect.set_params(
-                (detect.sum_x1 + detect.sum_x2) / 20.0,
-                (detect.sum_y1 + detect.sum_y2) / 20.0,
-                abs(detect.sum_x1 - detect.sum_x2) / 10.0 +
-                abs(detect.sum_y1 - detect.sum_y2) / 10.0
-            )
-            print("ok")
-            continue
-
-        # get detect result
-        # detect_result = detect.color_detect(frame)
-        # print('调用检测')
-        detect_result = detect.shape_detect(frame)
-        # print("完成检测")
-        if detect_result is None:
+            #
             cv2.imshow("figure", frame)
-            continue
+        # Obtenir les coordonnées des deux ArUcos et calculer le rapport des coordonnées du cube
+        elif nparams >= 10 and nparams < 20:
+            # Obtenir le centre des deux arucos
+            params = detect.get_calculate_params(frame)
+            # calculer
+            if params is not None:
+                detect.sum_x1 += params[0]
+                detect.sum_x2 += params[1]
+                detect.sum_y1 += params[2]
+                detect.sum_y2 += params[3]
+                nparams += 1
+                if nparams == 20:
+                    detect.set_params(
+                        (detect.sum_x1 + detect.sum_x2) / 20.0,
+                        (detect.sum_y1 + detect.sum_y2) / 20.0,
+                        abs(detect.sum_x1 - detect.sum_x2) / 10.0,
+                    )
+                    print("Paramètres de l'appareil photo OK")
+                continue
+            #
+            cv2.imshow("figure", frame)
         else:
-            x, y = detect_result
-            # calculate real coord between cube and mycobot280
-            real_x, real_y = detect.get_position(x, y)
-            if num == 20:
+            #
+            x, y = detect.shape_detect(frame)
+            if x is not None:
+                # Obtenir les coordonnées réelles du cube par rapport au mycobot
+                real_x, real_y = detect.get_position(x, y)
 
-                detect.decide_move(real_sx / 20.0, real_sy / 20.0, detect.color)
-                num = real_sx = real_sy = 0
+                #
+                color = 0
 
-            else:
-                num += 1
-                real_sy += real_y
-                real_sx += real_x
+                #
+                if real_y > 30:
+                    #
+                    color = 2
+                elif real_y < -30:
+                    #
+                    color = 3
+                else:
+                    color = 1
+                detect.move(real_x, real_y, color)
+                #
+                print('OK')
 
-        cv2.imshow("figure", frame)
-
-        # close the window
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            cap.release()
-            cv2.destroyAllWindows()
-            sys.exit()
+            #
+            cv2.imshow("figure", frame)
+    #
+    cap.release()
+    cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
-    # 提醒用户操作字典
-    print("********************************************************")
-    print("*  请输入数字选择模式(Please enter number selection mode)：*")
-    print("*  1: 单次模式(single mode)                              *")
-    print("*  2: 循环模式(loop mode)                                *")
-    print("*  3: 退出(quit)                                        *")
-    print("********************************************************")
-    mode = int(input('请选择模式(please select mode):'))
-    if mode == 1:
-        shape_single()
-    elif mode == 2:
-        shape_loop()
-    elif mode == 3:
-        exit(0)
+if __name__ == "__main__":
+    #
+    # shape_single()
+    shape_loop()
+    pass
